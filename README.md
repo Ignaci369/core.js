@@ -3,8 +3,7 @@ coffee checkout# core.js
 > Extendable client for GitHub's REST & GraphQL APIs
 
 [![@latest](https://img.shields.io/npm/v/@octokit/core.svg)](https://www.npmjs.com/package/@octokit/core)
-[![Build Status](https://github.com/octokit/core.js/workflows/Test/badge.svg)](https://github.com/octokit/core.js/actions)
-[![Greenkeeper](https://badges.greenkeeper.io/octokit/core.js.svg)](https://greenkeeper.io/)
+[![Build Status](https://github.com/octokit/core.js/workflows/Test/badge.svg)](https://github.com/octokit/core.js/actions?query=workflow%3ATest)
 
 <!-- toc -->
 
@@ -65,7 +64,7 @@ const octokit = new Octokit({ auth: `personal-access-token123` });
 
 const response = await octokit.request("GET /orgs/:org/repos", {
   org: "octokit",
-  type: "private"
+  type: "private",
 });
 ```
 
@@ -109,16 +108,23 @@ See [`@octokit/graphql`](https://github.com/octokit/graphql.js) for full documen
   <tbody align=left valign=top>
     <tr>
       <th>
+        <code>options.authStrategy</code>
+      </th>
+      <td>
+        <code>Function<code>
+      </td>
+      <td>
+        Defaults to <a href="https://github.com/octokit/auth-token.js#readme"><code>@octokit/auth-token</code></a>. See <a href="authentication">Authentication</a> below for examples.
+      </td>
+    </tr>
+    <tr>
+      <th>
         <code>options.auth</code>
       </th>
       <td>
-        <code>String</code> or <a href="https://github.com/octokit/auth.js"><code>@octokit/auth</code></a> instance
+        <code>String</code> or <code>Object</code>
       </td>
       <td>
-        If set to a <code>String</code>, then it's expected to be a <a href="https://help.github.com/en/articles/creating-a-personal-access-token-for-the-command-line">personal access token</a> or  <a href="https://developer.github.com/apps/building-oauth-apps/authorizing-oauth-apps/#web-application-flow">OAuth access token</a> and used accordingly in the <code>Authorization</code> header.<br>
-        <br>
-        For all other authentication strategies, set <code>options.auth</code> to a <a href="https://github.com/octokit/auth.js"><code>@octokit/auth</code></a> instance.<br>
-        <br>
         See <a href="authentication">Authentication</a> below for examples.
       </td>
     </tr>
@@ -135,7 +141,7 @@ When using with GitHub Enterprise Server, set `options.baseUrl` to the root URL 
 
 ```js
 const octokit = new Octokit({
-  baseUrl: "https://github.acme-inc.com/api/v3"
+  baseUrl: "https://github.acme-inc.com/api/v3",
 });
 ```
 
@@ -155,14 +161,14 @@ additional features. Preview headers can be set on a per-request basis, e.g.
 ```js
 octokit.request("POST /repos/:owner/:repo/pulls", {
   mediaType: {
-    previews: ["shadow-cat"]
+    previews: ["shadow-cat"],
   },
   owner,
   repo,
   title: "My pull request",
   base: "master",
   head: "my-feature",
-  draft: true
+  draft: true,
 });
 ```
 
@@ -170,7 +176,7 @@ You can also set previews globally, by setting the `options.previews` option on 
 
 ```js
 const octokit = new Octokit({
-  previews: ["shadow-cat"]
+  previews: ["shadow-cat"],
 });
 ```
 
@@ -191,6 +197,26 @@ There are more `options.request.*` options, see [`@octokit/request` options](htt
 </td></tr>
     <tr>
       <th>
+        <code>options.timeZone</code>
+      </th>
+      <td>
+        <code>String</code>
+      </td>
+      <td>
+
+Sets the `Time-Zone` header which defines a timezone according to the [list of names from the Olson database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones).
+
+```js
+const octokit = new Octokit({
+  timeZone: "America/Los_Angeles",
+});
+```
+
+The time zone header will determine the timezone used for generating the timestamp when creating commits. See [GitHub's Timezones documentation](https://developer.github.com/v3/#timezones).
+
+</td></tr>
+    <tr>
+      <th>
         <code>options.userAgent</code>
       </th>
       <td>
@@ -202,7 +228,7 @@ A custom user agent string for your app or library. Example
 
 ```js
 const octokit = new Octokit({
-  userAgent: "my-app/v1.2.3"
+  userAgent: "my-app/v1.2.3",
 });
 ```
 
@@ -218,7 +244,7 @@ You can create a new Octokit class with customized default options.
 const MyOctokit = Octokit.defaults({
   auth: "personal-access-token123",
   baseUrl: "https://github.acme-inc.com/api/v3",
-  userAgent: "my-app/v1.2.3"
+  userAgent: "my-app/v1.2.3",
 });
 const octokit1 = new MyOctokit();
 const octokit2 = new MyOctokit();
@@ -234,7 +260,7 @@ By default, Octokit authenticates using the [token authentication strategy](http
 import { Octokit } from "@octokit/core";
 
 const octokit = new Octokit({
-  auth: "mypersonalaccesstoken123"
+  auth: "mypersonalaccesstoken123",
 });
 
 const { data } = await octokit.request("/user");
@@ -250,8 +276,8 @@ const appOctokit = new Octokit({
   authStrategy: createAppAuth,
   auth: {
     id: 123,
-    privateKey: process.env.PRIVATE_KEY
-  }
+    privateKey: process.env.PRIVATE_KEY,
+  },
 });
 
 const { data } = await appOctokit.request("/app");
@@ -262,7 +288,7 @@ The `.auth()` method returned by the current authentication strategy can be acce
 ```js
 const { token } = await appOctokit.auth({
   type: "installation",
-  installationId: 123
+  installationId: 123,
 });
 ```
 
@@ -283,7 +309,7 @@ If you would like to make the log level configurable using an environment variab
 
 ```js
 const octokit = new Octokit({
-  log: require("console-log-level")({ level: "info" })
+  log: require("console-log-level")({ level: "info" }),
 });
 ```
 
@@ -292,7 +318,7 @@ const octokit = new Octokit({
 You can customize Octokit's request lifecycle with hooks.
 
 ```js
-octokit.hook.before("request", async options => {
+octokit.hook.before("request", async (options) => {
   validate(options);
 });
 octokit.hook.after("request", async (response, options) => {
@@ -315,7 +341,7 @@ See [before-after-hook](https://github.com/gr2m/before-after-hook#readme) for 
 
 ## Plugins
 
-Octokit’s functionality can be extended using plugins. THe `Octokit.plugin()` method accepts a function or an array of functions and returns a new constructor.
+Octokit’s functionality can be extended using plugins. The `Octokit.plugin()` method accepts a plugin (or many) and returns a new constructor.
 
 A plugin is a function which gets two arguments:
 
@@ -326,10 +352,11 @@ In order to extend `octokit`'s API, the plugin must return an object with the ne
 
 ```js
 // index.js
-const MyOctokit = require("@octokit/core").plugin([
+const { Octokit } = require("@octokit/core")
+const MyOctokit = Octokit.plugin(
   require("./lib/my-plugin"),
   require("octokit-plugin-example")
-]);
+);
 
 const octokit = new MyOctokit({ greeting: "Moin moin" });
 octokit.helloWorld(); // logs "Moin moin, world!"
@@ -360,16 +387,15 @@ module.exports = (octokit, options = { greeting: "Hello" }) => {
 You can build your own Octokit class with preset default options and plugins. In fact, this is mostly how the `@octokit/<context>` modules work, such as [`@octokit/action`](https://github.com/octokit/action.js):
 
 ```js
-const MyActionOctokit = require("@octokit/core")
-  .plugin([
-    require("@octokit/plugin-paginate"),
-    require("@octokit/plugin-throttle"),
-    require("@octokit/plugin-retry")
-  ])
-  .defaults({
-    authStrategy: require("@octokit/auth-action"),
-    userAgent: `my-octokit-action/v1.2.3`
-  });
+const { Octokit } = require("@octokit/core");
+const MyActionOctokit = Octokit.plugin(
+  require("@octokit/plugin-paginate"),
+  require("@octokit/plugin-throttle"),
+  require("@octokit/plugin-retry")
+).defaults({
+  authStrategy: require("@octokit/auth-action"),
+  userAgent: `my-octokit-action/v1.2.3`,
+});
 
 const octokit = new MyActionOctokit();
 const installations = await octokit.paginate("GET /app/installations");

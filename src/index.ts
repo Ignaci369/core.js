@@ -9,18 +9,33 @@ import {
   OctokitOptions,
   OctokitPlugin,
   RequestParameters,
-  ReturnTypeOf
+  ReturnTypeOf,
+  UnionToIntersection,
 } from "./types";
 import { VERSION } from "./version";
 
 export class Octokit {
+  static VERSION = VERSION;
   static defaults<S extends Constructor<any>>(
     this: S,
     defaults: OctokitOptions
   ) {
     const OctokitWithDefaults = class extends this {
       constructor(...args: any[]) {
-        super(Object.assign({}, defaults, args[0] || {}));
+        const options = args[0] || {};
+
+        super(
+          Object.assign(
+            {},
+            defaults,
+            options,
+            options.userAgent && defaults.userAgent
+              ? {
+                  userAgent: `${options.userAgent} ${defaults.userAgent}`,
+                }
+              : null
+          )
+        );
       }
     };
 
@@ -28,22 +43,43 @@ export class Octokit {
   }
 
   static plugins: OctokitPlugin[] = [];
+  /**
+   * Attach a plugin (or many) to your Octokit instance.
+   *
+   * @example
+   * const API = Octokit.plugin(plugin1, plugin2, plugin3, ...)
+   */
   static plugin<
     S extends Constructor<any> & { plugins: any[] },
-    T extends OctokitPlugin | OctokitPlugin[]
-  >(this: S, pluginOrPlugins: T) {
+    T1 extends OctokitPlugin | OctokitPlugin[],
+    T2 extends OctokitPlugin[]
+  >(this: S, p1: T1, ...p2: T2) {
+    if (p1 instanceof Array) {
+      console.warn(
+        [
+          "Passing an array of plugins to Octokit.plugin() has been deprecated.",
+          "Instead of:",
+          "  Octokit.plugin([plugin1, plugin2, ...])",
+          "Use:",
+          "  Octokit.plugin(plugin1, plugin2, ...)",
+        ].join("\n")
+      );
+    }
     const currentPlugins = this.plugins;
-    const newPlugins = Array.isArray(pluginOrPlugins)
-      ? pluginOrPlugins
-      : [pluginOrPlugins];
-
+    let newPlugins: (OctokitPlugin | undefined)[] = [
+      ...(p1 instanceof Array
+        ? (p1 as OctokitPlugin[])
+        : [p1 as OctokitPlugin]),
+      ...p2,
+    ];
     const NewOctokit = class extends this {
       static plugins = currentPlugins.concat(
-        newPlugins.filter(plugin => !currentPlugins.includes(plugin))
+        newPlugins.filter((plugin) => !currentPlugins.includes(plugin))
       );
     };
 
-    return NewOctokit as typeof NewOctokit & Constructor<ReturnTypeOf<T>>;
+    return NewOctokit as typeof NewOctokit &
+      Constructor<UnionToIntersection<ReturnTypeOf<T1> & ReturnTypeOf<T2>>>;
   }
 
   constructor(options: OctokitOptions = {}) {
@@ -52,18 +88,18 @@ export class Octokit {
       baseUrl: request.endpoint.DEFAULTS.baseUrl,
       headers: {},
       request: Object.assign({}, options.request, {
-        hook: hook.bind(null, "request")
+        hook: hook.bind(null, "request"),
       }),
       mediaType: {
         previews: [],
-        format: ""
-      }
+        format: "",
+      },
     };
 
     // prepend default user agent with `options.userAgent` if set
     requestDefaults.headers["user-agent"] = [
       options.userAgent,
-      `octokit-core.js/${VERSION} ${getUserAgent()}`
+      `octokit-core.js/${VERSION} ${getUserAgent()}`,
     ]
       .filter(Boolean)
       .join(" ");
@@ -80,16 +116,29 @@ export class Octokit {
       requestDefaults.headers["time-zone"] = options.timeZone;
     }
 
+    this.request = request.defaults(requestDefaults);
+    this.graphql = withCustomRequest(this.request).defaults(requestDefaults);
+    this.log = Object.assign(
+      {
+        debug: () => {},
+        info: () => {},
+        warn: console.warn.bind(console),
+        error: console.error.bind(console),
+      },
+      options.log
+    );
+    this.hook = hook;
+
     // (1) If neither `options.authStrategy` nor `options.auth` are set, the `octokit` instance
     //     is unauthenticated. The `this.auth()` method is a no-op and no request hook is registred.
     // (2) If only `options.auth` is set, use the default token authentication strategy.
-    // (3) If `options.authStrategy` is set then use it and pass in `options.auth`
+    // (3) If `options.authStrategy` is set then use it and pass in `options.auth`. Always pass own request as many strategies accept a custom request instance.
     // TODO: type `options.auth` based on `options.authStrategy`.
     if (!options.authStrategy) {
       if (!options.auth) {
         // (1)
         this.auth = async () => ({
-          type: "unauthenticated"
+          type: "unauthenticated",
         });
       } else {
         // (2)
@@ -99,29 +148,23 @@ export class Octokit {
         this.auth = auth;
       }
     } else {
-      const auth = options.authStrategy(options.auth);
+      const auth = options.authStrategy(
+        Object.assign(
+          {
+            request: this.request,
+          },
+          options.auth
+        )
+      );
       // @ts-ignore  ¯\_(ツ)_/¯
       hook.wrap("request", auth.hook);
       this.auth = auth;
     }
 
-    this.request = request.defaults(requestDefaults);
-    this.graphql = withCustomRequest(this.request).defaults(requestDefaults);
-    this.log = Object.assign(
-      {
-        debug: () => {},
-        info: () => {},
-        warn: console.warn.bind(console),
-        error: console.error.bind(console)
-      },
-      options.log
-    );
-    this.hook = hook;
-
     // apply plugins
     // https://stackoverflow.com/a/16345172
     const classConstructor = this.constructor as typeof Octokit;
-    classConstructor.plugins.forEach(plugin => {
+    classConstructor.plugins.forEach((plugin) => {
       Object.assign(this, plugin(this, options));
     });
   }
