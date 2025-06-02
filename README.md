@@ -1,4 +1,4 @@
-# core.js
+coffee checkout# core.js
 
 > Extendable client for GitHub's REST & GraphQL APIs
 
